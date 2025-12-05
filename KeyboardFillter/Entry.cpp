@@ -9,8 +9,10 @@ typedef struct _DEVICE_EXTENSION
 	// ... anything else you need
 } DEVICE_EXTENSION, * PDEVICE_EXTENSION;
 
-NTSTATUS HandleMajorFunction(PDEVICE_OBJECT DeviceObject, PIRP Irp);
 void DriverUnload(PDRIVER_OBJECT DriverObject);
+NTSTATUS ForwardMajorFunction(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp);
+NTSTATUS HandleReadRequest(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp);
+NTSTATUS FilterDispatchPnp(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp);
 
 extern "C" NTSTATUS
 DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
@@ -21,7 +23,15 @@ DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
 	PDEVICE_EXTENSION devExt = nullptr;
 	do {
 		for (int i = 0; i < ARRAYSIZE(DriverObject->MajorFunction); i++) {
-			DriverObject->MajorFunction[i] = HandleMajorFunction;
+			if (i == IRP_MJ_READ) {
+				DriverObject->MajorFunction[i] = HandleReadRequest;
+				continue;
+			}
+			if (i == IRP_MJ_PNP) {
+				DriverObject->MajorFunction[i] = FilterDispatchPnp;
+				continue;
+			}
+			DriverObject->MajorFunction[i] = ForwardMajorFunction;
 		}
 		DriverObject->DriverUnload = DriverUnload;
 
@@ -59,27 +69,48 @@ DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
 	return status;
 }
 
-NTSTATUS HandleMajorFunction(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
-	auto devExt = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
-	auto stack = IoGetCurrentIrpStackLocation(Irp);
-	log("KeyboardFilter: MajorFunction %u\n", stack->MajorFunction);
-	IoSkipCurrentIrpStackLocation(Irp);
-	return IoCallDriver(devExt->LowerDeviceObject, Irp);
-}
-
 void DriverUnload(PDRIVER_OBJECT DriverObject) {
-	auto deviceObject = DriverObject->DeviceObject;
+	auto filterDeviceObjects = DriverObject->DeviceObject;
 
-	while (deviceObject != nullptr) {
-		auto devExt = (PDEVICE_EXTENSION)deviceObject->DeviceExtension;
+	auto currentFilterDeviceObject = filterDeviceObjects; // I know its redundant. This is for clarity.
+	while (currentFilterDeviceObject != nullptr) {
+		auto devExt = (PDEVICE_EXTENSION)currentFilterDeviceObject->DeviceExtension;
 
 		if (devExt->LowerDeviceObject) {
 			IoDetachDevice(devExt->LowerDeviceObject);
 			devExt->LowerDeviceObject = nullptr;
 		}
 
-		PDEVICE_OBJECT next = deviceObject->NextDevice;
-		IoDeleteDevice(deviceObject);
-		deviceObject = next;
+		PDEVICE_OBJECT nextFilterDeviceObject = currentFilterDeviceObject->NextDevice;
+		IoDeleteDevice(currentFilterDeviceObject);
+		currentFilterDeviceObject = nextFilterDeviceObject;
 	}
+}
+
+NTSTATUS ForwardMajorFunction(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
+	auto devExt = (PDEVICE_EXTENSION)FilterDeviceObject->DeviceExtension;
+	auto stack = IoGetCurrentIrpStackLocation(Irp);
+	log("KeyboardFilter: MajorFunction %u\n", stack->MajorFunction);
+	IoSkipCurrentIrpStackLocation(Irp);
+	return IoCallDriver(devExt->LowerDeviceObject, Irp);
+}
+
+NTSTATUS HandleReadRequest(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
+	auto devExt = (PDEVICE_EXTENSION)FilterDeviceObject->DeviceExtension;
+	log("KeyboardFilter: Read Request\n");
+	IoSkipCurrentIrpStackLocation(Irp);
+	return IoCallDriver(devExt->LowerDeviceObject, Irp);
+}
+
+NTSTATUS FilterDispatchPnp(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
+	auto ext = (DEVICE_EXTENSION*)FilterDeviceObject->DeviceExtension;
+	auto stack = IoGetCurrentIrpStackLocation(Irp);
+	UCHAR minor = stack->MinorFunction;
+	IoSkipCurrentIrpStackLocation(Irp);
+	auto status = IoCallDriver(ext->LowerDeviceObject, Irp);
+	if (minor == IRP_MN_REMOVE_DEVICE) {
+		IoDetachDevice(ext->LowerDeviceObject);
+		IoDeleteDevice(FilterDeviceObject);
+	}
+	return status;
 }
