@@ -16,6 +16,7 @@ extern "C" NTSTATUS
 DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
 	UNREFERENCED_PARAMETER(RegistryPath);
 
+	UNICODE_STRING targetName = RTL_CONSTANT_STRING(L"\\Device\\KeyboardClass0");
 	NTSTATUS status = STATUS_SUCCESS;
 	PDEVICE_EXTENSION devExt = nullptr;
 	do {
@@ -24,7 +25,6 @@ DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
 		}
 		DriverObject->DriverUnload = DriverUnload;
 
-		UNICODE_STRING targetName = RTL_CONSTANT_STRING(L"\\Device\\KeyboardClass0");
 		PDEVICE_OBJECT filterDeviceObject = nullptr;
 		status = IoCreateDevice(DriverObject, sizeof(DEVICE_EXTENSION), nullptr,
 			FILE_DEVICE_UNKNOWN, 0, FALSE, &filterDeviceObject);
@@ -37,8 +37,6 @@ DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
 		PDEVICE_OBJECT TargetDeviceObject;
 		status = IoGetDeviceObjectPointer(&targetName, FILE_READ_DATA, &FileObject, &TargetDeviceObject);
 		if (!NT_SUCCESS(status)) break;
-		ObfReferenceObject(TargetDeviceObject);
-		ObfDereferenceObject(FileObject);
 
 		devExt->Self->Flags |= TargetDeviceObject->Flags & (DO_BUFFERED_IO | DO_DIRECT_IO);
 		devExt->Self->Flags &= ~DO_DEVICE_INITIALIZING;
@@ -46,9 +44,14 @@ DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
 		devExt->Self->DeviceType = TargetDeviceObject->DeviceType;
 
 		status = IoAttachDeviceToDeviceStackSafe(devExt->Self, TargetDeviceObject, &devExt->LowerDeviceObject);
+		ObfDereferenceObject(FileObject);
+		if (!NT_SUCCESS(status)) break;
+
+		log("Attached to %wZ, lower DO=%p\n", &targetName, devExt->LowerDeviceObject);
 	} while (false);
 	
 	if (!NT_SUCCESS(status)) {
+		log("Failed to attach to %wZ: status=0x%08X\n", &targetName, status);
 		if (devExt && devExt->Self) {
 			IoDeleteDevice(devExt->Self);
 		}
@@ -58,7 +61,8 @@ DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
 
 NTSTATUS HandleMajorFunction(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
 	auto devExt = (PDEVICE_EXTENSION)DeviceObject->DeviceExtension;
-	log("KeyboardFilter: MajorFunction %u\n", Irp->Tail.Overlay.CurrentStackLocation->MajorFunction);
+	auto stack = IoGetCurrentIrpStackLocation(Irp);
+	log("KeyboardFilter: MajorFunction %u\n", stack->MajorFunction);
 	IoSkipCurrentIrpStackLocation(Irp);
 	return IoCallDriver(devExt->LowerDeviceObject, Irp);
 }
