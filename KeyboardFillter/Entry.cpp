@@ -11,6 +11,7 @@ typedef struct _DEVICE_EXTENSION
 } DEVICE_EXTENSION, * PDEVICE_EXTENSION;
 
 void DriverUnload(PDRIVER_OBJECT DriverObject);
+void LogRequest(PDEVICE_EXTENSION extDev, PIRP Irp);
 NTSTATUS ForwardMajorFunction(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp);
 NTSTATUS HandleReadRequest(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp);
 NTSTATUS FilterDispatchPnp(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp);
@@ -93,8 +94,7 @@ NTSTATUS ForwardMajorFunction(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
 	auto devExt = (PDEVICE_EXTENSION)FilterDeviceObject->DeviceExtension;
 	kstd::RemoveLockGuard guard = devExt->RemoveLock.LockAcquire(Irp, status);
 	if (!NT_SUCCESS(status)) return status;
-	auto stack = IoGetCurrentIrpStackLocation(Irp);
-	log("KeyboardFilter: MajorFunction %u\n", stack->MajorFunction);
+	LogRequest(devExt, Irp);
 	IoSkipCurrentIrpStackLocation(Irp);
 	return IoCallDriver(devExt->LowerDeviceObject, Irp);
 }
@@ -104,7 +104,8 @@ NTSTATUS HandleReadRequest(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
 	auto devExt = (PDEVICE_EXTENSION)FilterDeviceObject->DeviceExtension;
 	kstd::RemoveLockGuard guard = devExt->RemoveLock.LockAcquire(Irp, status);
 	if (!NT_SUCCESS(status)) return status;
-	log("KeyboardFilter: Read Request\n");
+	LogRequest(devExt, Irp);
+
 	IoSkipCurrentIrpStackLocation(Irp);
 	return IoCallDriver(devExt->LowerDeviceObject, Irp);
 }
@@ -116,6 +117,8 @@ NTSTATUS FilterDispatchPnp(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
 	if (!NT_SUCCESS(status)) return status;
 	auto stack = IoGetCurrentIrpStackLocation(Irp);
 	UCHAR minor = stack->MinorFunction;
+	LogRequest(devExt, Irp);
+
 	IoSkipCurrentIrpStackLocation(Irp);
 	status = IoCallDriver(devExt->LowerDeviceObject, Irp);
 	if (minor == IRP_MN_REMOVE_DEVICE) {
@@ -124,4 +127,16 @@ NTSTATUS FilterDispatchPnp(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
 		IoDeleteDevice(FilterDeviceObject);
 	}
 	return status;
+}
+
+void LogRequest(PDEVICE_EXTENSION extDev, PIRP Irp) {
+	auto thread_id = Irp->Tail.Overlay.Thread;
+	ULONG tid = 0, pid = 0;
+	if (thread_id) {
+		tid = HandleToUlong(PsGetThreadId(thread_id));
+		pid = HandleToUlong(PsGetThreadProcessId(thread_id));
+	}
+	auto stack = IoGetCurrentIrpStackLocation(Irp);
+	log("Intercepted driver: %wZ: PID: %d, TID: %d, MJ=%d\n",
+		&extDev->LowerDeviceObject->DriverObject->DriverName, pid, tid, stack->MajorFunction);
 }
