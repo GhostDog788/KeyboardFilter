@@ -1,9 +1,11 @@
 #include <ntddk.h>
+#include "RemoveLock.hpp"
 
 #define log(fmt, ...) DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_INFO_LEVEL, fmt, __VA_ARGS__)
 
 typedef struct _DEVICE_EXTENSION
 {
+	kstd::RemoveLock RemoveLock;
 	PDEVICE_OBJECT  LowerDeviceObject;
 	// ... anything else you need
 } DEVICE_EXTENSION, * PDEVICE_EXTENSION;
@@ -40,6 +42,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
 		if (!NT_SUCCESS(status)) break;
 		devExt = (PDEVICE_EXTENSION)filterDeviceObject->DeviceExtension;
 		RtlZeroMemory(devExt, sizeof(*devExt));
+		devExt->RemoveLock.Initialize();
 
 		PFILE_OBJECT FileObject;
 		PDEVICE_OBJECT TargetDeviceObject;
@@ -86,7 +89,10 @@ void DriverUnload(PDRIVER_OBJECT DriverObject) {
 }
 
 NTSTATUS ForwardMajorFunction(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
+	NTSTATUS status;
 	auto devExt = (PDEVICE_EXTENSION)FilterDeviceObject->DeviceExtension;
+	kstd::RemoveLockGuard guard = devExt->RemoveLock.LockAcquire(Irp, status);
+	if (!NT_SUCCESS(status)) return status;
 	auto stack = IoGetCurrentIrpStackLocation(Irp);
 	log("KeyboardFilter: MajorFunction %u\n", stack->MajorFunction);
 	IoSkipCurrentIrpStackLocation(Irp);
@@ -94,20 +100,27 @@ NTSTATUS ForwardMajorFunction(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
 }
 
 NTSTATUS HandleReadRequest(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
+	NTSTATUS status;
 	auto devExt = (PDEVICE_EXTENSION)FilterDeviceObject->DeviceExtension;
+	kstd::RemoveLockGuard guard = devExt->RemoveLock.LockAcquire(Irp, status);
+	if (!NT_SUCCESS(status)) return status;
 	log("KeyboardFilter: Read Request\n");
 	IoSkipCurrentIrpStackLocation(Irp);
 	return IoCallDriver(devExt->LowerDeviceObject, Irp);
 }
 
 NTSTATUS FilterDispatchPnp(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
-	auto ext = (DEVICE_EXTENSION*)FilterDeviceObject->DeviceExtension;
+	NTSTATUS status;
+	auto devExt = (DEVICE_EXTENSION*)FilterDeviceObject->DeviceExtension;
+	kstd::RemoveLockGuard guard = devExt->RemoveLock.LockAcquire(Irp, status);
+	if (!NT_SUCCESS(status)) return status;
 	auto stack = IoGetCurrentIrpStackLocation(Irp);
 	UCHAR minor = stack->MinorFunction;
 	IoSkipCurrentIrpStackLocation(Irp);
-	auto status = IoCallDriver(ext->LowerDeviceObject, Irp);
+	status = IoCallDriver(devExt->LowerDeviceObject, Irp);
 	if (minor == IRP_MN_REMOVE_DEVICE) {
-		IoDetachDevice(ext->LowerDeviceObject);
+		guard.ReleaseAndWait();
+		IoDetachDevice(devExt->LowerDeviceObject);
 		IoDeleteDevice(FilterDeviceObject);
 	}
 	return status;
