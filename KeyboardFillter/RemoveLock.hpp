@@ -8,6 +8,16 @@ namespace kstd {
 	friend class RemoveLock;
 	public:
 		RemoveLockGuard() = default;
+		RemoveLockGuard(const RemoveLockGuard& other) = delete;
+		RemoveLockGuard& operator=(RemoveLockGuard& other) = delete;
+		RemoveLockGuard(RemoveLockGuard&& other) {
+			m_remove_lock = other.m_remove_lock;
+			other.m_remove_lock = nullptr;
+		}
+		RemoveLockGuard& operator=(RemoveLockGuard&& other) {
+			m_remove_lock = other.m_remove_lock;
+			other.m_remove_lock = nullptr;
+		}
 		~RemoveLockGuard() {
 			if (m_remove_lock) {
 				IoReleaseRemoveLock(m_remove_lock, 0);

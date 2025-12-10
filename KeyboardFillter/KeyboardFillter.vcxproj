@@ -93,8 +93,12 @@
     <ClCompile Include="Entry.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CircularBuffer.h" />
+    <ClInclude Include="Common.h" />
+    <ClInclude Include="KernelNew.h" />
     <ClInclude Include="Move.hpp" />
     <ClInclude Include="RemoveLock.hpp" />
+    <ClInclude Include="StaticBuffer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
