@@ -15,15 +15,16 @@ namespace kstd {
 			other.m_remove_lock = nullptr;
 		}
 		RemoveLockGuard& operator=(RemoveLockGuard&& other) {
-			m_remove_lock = other.m_remove_lock;
-			other.m_remove_lock = nullptr;
+			if (this != &other) {
+				m_remove_lock = other.m_remove_lock;
+				other.m_remove_lock = nullptr;
+			}
+			return *this;
 		}
 		~RemoveLockGuard() {
-			if (m_remove_lock) {
-				IoReleaseRemoveLock(m_remove_lock, 0);
-			}
+			Unlock();
 		}
-		NTSTATUS Lock(IO_REMOVE_LOCK* lock, PIRP Irp) {
+		NTSTATUS Lock(PIO_REMOVE_LOCK lock, PIRP Irp) {
 			m_remove_lock = lock;
 			auto status = IoAcquireRemoveLock(m_remove_lock, Irp);
 			if (!NT_SUCCESS(status)) { // STATUS_DELETE_PENDING
@@ -33,14 +34,14 @@ namespace kstd {
 			}
 			return status;
 		}
-		void ReleaseAndWait() {
+		void Unlock() {
 			if (m_remove_lock) {
-				IoReleaseRemoveLockAndWait(m_remove_lock, 0);
+				IoReleaseRemoveLock(m_remove_lock, 0);
 				m_remove_lock = nullptr;
 			}
 		}
 	private:
-		IO_REMOVE_LOCK* m_remove_lock = nullptr;
+		PIO_REMOVE_LOCK m_remove_lock = nullptr;
 	};
 
 	class RemoveLock
@@ -50,10 +51,27 @@ namespace kstd {
 		void Initialize() {
 			IoInitializeRemoveLock(&m_remove_lock, 'RmLk', 0, 0);
 		}
-		RemoveLockGuard LockAcquire(PIRP Irp, NTSTATUS& status) {
+		RemoveLockGuard&& LockAcquire(PIRP Irp, NTSTATUS& status) {
 			RemoveLockGuard guard;
 			status = guard.Lock(&m_remove_lock, Irp);
 			return kstd::move(guard);
+		}
+		NTSTATUS ManualLock() {
+			return IoAcquireRemoveLock(&m_remove_lock, 0);
+		}
+		NTSTATUS ManualLock(PIRP Irp) {
+			auto status = IoAcquireRemoveLock(&m_remove_lock, Irp);
+			if (!NT_SUCCESS(status)) { // STATUS_DELETE_PENDING
+				Irp->IoStatus.Status = status;
+				IoCompleteRequest(Irp, IO_NO_INCREMENT);
+			}
+			return status;
+		}
+		void ManualUnlock() {
+			IoReleaseRemoveLock(&m_remove_lock, 0);
+		}
+		void ReleaseAndWait() {
+			IoReleaseRemoveLockAndWait(&m_remove_lock, 0);
 		}
 	private:
 		IO_REMOVE_LOCK m_remove_lock;

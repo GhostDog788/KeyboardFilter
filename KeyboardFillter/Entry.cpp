@@ -92,6 +92,8 @@ void DriverUnload(PDRIVER_OBJECT DriverObject) {
 			devExt->LowerDeviceObject = nullptr;
 		}
 
+		devExt->RemoveLock.ReleaseAndWait();
+		devExt->KeyEventBuffer.~CircularBuffer(); // Explicitly call destructor
 		PDEVICE_OBJECT nextFilterDeviceObject = currentFilterDeviceObject->NextDevice;
 		IoDeleteDevice(currentFilterDeviceObject);
 		currentFilterDeviceObject = nextFilterDeviceObject;
@@ -101,22 +103,21 @@ void DriverUnload(PDRIVER_OBJECT DriverObject) {
 NTSTATUS ForwardMajorFunction(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
 	NTSTATUS status;
 	auto devExt = (PDEVICE_EXTENSION)FilterDeviceObject->DeviceExtension;
-	kstd::RemoveLockGuard guard = devExt->RemoveLock.LockAcquire(Irp, status);
+	kstd::RemoveLockGuard guard(devExt->RemoveLock.LockAcquire(Irp, status));
 	if (!NT_SUCCESS(status)) return status;
+
 	LogRequest(devExt, Irp);
 	IoSkipCurrentIrpStackLocation(Irp);
 	return IoCallDriver(devExt->LowerDeviceObject, Irp);
 }
 
 NTSTATUS HandleReadRequest(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
-	NTSTATUS status;
 	auto devExt = (PDEVICE_EXTENSION)FilterDeviceObject->DeviceExtension;
-	kstd::RemoveLockGuard guard = devExt->RemoveLock.LockAcquire(Irp, status);
+	NTSTATUS status = devExt->RemoveLock.ManualLock(Irp);
 	if (!NT_SUCCESS(status)) return status;
+
 	LogRequest(devExt, Irp);
-
 	IoCopyCurrentIrpStackLocationToNext(Irp);
-
 	IoSetCompletionRoutine(Irp, ReadCompletion, FilterDeviceObject, true, true, true);
 	return IoCallDriver(devExt->LowerDeviceObject, Irp);
 }
@@ -124,7 +125,7 @@ NTSTATUS HandleReadRequest(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
 NTSTATUS FilterDispatchPnp(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
 	NTSTATUS status;
 	auto devExt = (DEVICE_EXTENSION*)FilterDeviceObject->DeviceExtension;
-	kstd::RemoveLockGuard guard = devExt->RemoveLock.LockAcquire(Irp, status);
+	kstd::RemoveLockGuard guard(devExt->RemoveLock.LockAcquire(Irp, status));
 	if (!NT_SUCCESS(status)) return status;
 	auto stack = IoGetCurrentIrpStackLocation(Irp);
 	UCHAR minor = stack->MinorFunction;
@@ -133,7 +134,8 @@ NTSTATUS FilterDispatchPnp(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
 	IoSkipCurrentIrpStackLocation(Irp);
 	status = IoCallDriver(devExt->LowerDeviceObject, Irp);
 	if (minor == IRP_MN_REMOVE_DEVICE) {
-		guard.ReleaseAndWait();
+		guard.Unlock();
+		devExt->RemoveLock.ReleaseAndWait();
 		IoDetachDevice(devExt->LowerDeviceObject);
 		IoDeleteDevice(FilterDeviceObject);
 	}
@@ -175,7 +177,8 @@ NTSTATUS ReadCompletion(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp, PVOID Conte
 		log("READ completed: Status=0x%08X, Bytes=%Iu\n", Irp->IoStatus.Status, Irp->IoStatus.Information);
 	}
 
-	return STATUS_SUCCESS;   // let the IRP continue completing
+	devExt->RemoveLock.ManualUnlock();
+	return STATUS_CONTINUE_COMPLETION;
 }
 
 void LogRequest(PDEVICE_EXTENSION extDev, PIRP Irp) {
