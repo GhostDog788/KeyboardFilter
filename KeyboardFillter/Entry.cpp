@@ -87,13 +87,15 @@ void DriverUnload(PDRIVER_OBJECT DriverObject) {
 	while (currentFilterDeviceObject != nullptr) {
 		auto devExt = (PDEVICE_EXTENSION)currentFilterDeviceObject->DeviceExtension;
 
+		devExt->RemoveLock.ManualLock();
+		devExt->RemoveLock.ReleaseAndWait();
+		devExt->KeyEventBuffer.~CircularBuffer(); // Explicitly call destructor
+
 		if (devExt->LowerDeviceObject) {
 			IoDetachDevice(devExt->LowerDeviceObject);
 			devExt->LowerDeviceObject = nullptr;
 		}
 
-		devExt->RemoveLock.ReleaseAndWait();
-		devExt->KeyEventBuffer.~CircularBuffer(); // Explicitly call destructor
 		PDEVICE_OBJECT nextFilterDeviceObject = currentFilterDeviceObject->NextDevice;
 		IoDeleteDevice(currentFilterDeviceObject);
 		currentFilterDeviceObject = nextFilterDeviceObject;
@@ -134,7 +136,7 @@ NTSTATUS FilterDispatchPnp(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
 	IoSkipCurrentIrpStackLocation(Irp);
 	status = IoCallDriver(devExt->LowerDeviceObject, Irp);
 	if (minor == IRP_MN_REMOVE_DEVICE) {
-		guard.Unlock();
+		guard.Clear();
 		devExt->RemoveLock.ReleaseAndWait();
 		IoDetachDevice(devExt->LowerDeviceObject);
 		IoDeleteDevice(FilterDeviceObject);
