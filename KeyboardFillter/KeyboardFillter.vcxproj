@@ -80,25 +80,40 @@
     <DriverSign>
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
     </DriverSign>
+    <ClCompile />
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\dor\source\repos\KeyboardFillter\KeyboardFillter;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DriverSign>
       <FileDigestAlgorithm>sha256</FileDigestAlgorithm>
     </DriverSign>
+    <ClCompile />
+    <ClCompile>
+      <AdditionalIncludeDirectories>C:\Users\dor\source\repos\KeyboardFillter\KeyboardFillter;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Entry.cpp" />
+    <ClCompile Include="src\driver\KeyboardSniffing.cpp" />
+    <ClCompile Include="src\utils\logging.cpp" />
+    <ClCompile Include="src\driver\MajorFunctions.cpp" />
+    <ClCompile Include="src\driver\Entry.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="CircularBuffer.h" />
-    <ClInclude Include="Common.h" />
-    <ClInclude Include="KernelNew.h" />
-    <ClInclude Include="Move.hpp" />
-    <ClInclude Include="RemoveLock.hpp" />
-    <ClInclude Include="StaticBuffer.h" />
+    <ClInclude Include="src\driver\KeyboardSniffing.h" />
+    <ClInclude Include="kstd\CircularBuffer.hpp" />
+    <ClInclude Include="src\driver\Definitions.h" />
+    <ClInclude Include="src\utils\logging.h" />
+    <ClInclude Include="src\driver\MajorFunctions.h" />
+    <ClInclude Include="shared\Common.h" />
+    <ClInclude Include="kstd\New.hpp" />
+    <ClInclude Include="kstd\Move.hpp" />
+    <ClInclude Include="kstd\RemoveLock.hpp" />
+    <ClInclude Include="kstd\StaticBuffer.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

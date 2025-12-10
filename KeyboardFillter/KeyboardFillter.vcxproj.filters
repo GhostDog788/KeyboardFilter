@@ -19,27 +19,48 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Entry.cpp">
+    <ClCompile Include="src\driver\Entry.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\driver\MajorFunctions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utils\logging.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\driver\KeyboardSniffing.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Move.hpp">
+    <ClInclude Include="kstd\Move.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="RemoveLock.hpp">
+    <ClInclude Include="kstd\RemoveLock.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Common.h">
+    <ClInclude Include="shared\Common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="StaticBuffer.h">
+    <ClInclude Include="kstd\StaticBuffer.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CircularBuffer.h">
+    <ClInclude Include="kstd\CircularBuffer.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="KernelNew.h">
+    <ClInclude Include="kstd\New.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\driver\MajorFunctions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utils\logging.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\driver\Definitions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\driver\KeyboardSniffing.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

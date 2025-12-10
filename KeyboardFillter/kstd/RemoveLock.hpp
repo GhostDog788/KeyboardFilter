@@ -3,6 +3,7 @@
 #include "Move.hpp"
 
 namespace kstd {
+
 	class RemoveLockGuard
 	{
 	friend class RemoveLock;

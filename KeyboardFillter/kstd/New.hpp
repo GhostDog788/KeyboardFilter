@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <ntddk.h>
 
 void* __cdecl operator new(size_t size)
 {

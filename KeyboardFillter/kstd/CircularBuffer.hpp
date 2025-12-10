@@ -1,5 +1,5 @@
 #pragma once
-#include "StaticBuffer.h"
+#include "StaticBuffer.hpp"
 
 namespace kstd {
 
