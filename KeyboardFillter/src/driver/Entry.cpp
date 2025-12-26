@@ -33,7 +33,7 @@ DriverEntry(PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath) {
 		if (!NT_SUCCESS(status)) break;
 		devExt = (PDEVICE_EXTENSION)filterDeviceObject->DeviceExtension;
 		RtlZeroMemory(devExt, sizeof(*devExt));
-		new (&devExt->KeyEventBuffer) kstd::CircularBuffer<KeyEvent, KEY_EVENT_BUFFER_SIZE>();
+		new (&devExt->KeyEventBuffer) kstd::CircularBuffer<KeyEvent, KEY_EVENT_BUFFER_SIZE>(true);
 		devExt->RemoveLock.Initialize();
 		KeInitializeSpinLock(&devExt->BufferLock);
 
