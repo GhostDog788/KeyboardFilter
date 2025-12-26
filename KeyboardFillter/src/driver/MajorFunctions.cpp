@@ -1,71 +1,139 @@
 #include "MajorFunctions.h"
-#include "Definitions.h"
-#include "KeyboardSniffing.h"
 #include <src/utils/logging.h>
+#include <src/driver/DeviceTypes.h>
+#include <src/driver/KeyboardSniffing.h>
 
-NTSTATUS ForwardMajorFunction(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
-	NTSTATUS status;
-	auto devExt = (PDEVICE_EXTENSION)FilterDeviceObject->DeviceExtension;
-	kstd::RemoveLockGuard guard(devExt->RemoveLock.LockAcquire(Irp, status));
-	if (!NT_SUCCESS(status)) return status;
-
-	LogRequest(devExt, Irp);
-	IoSkipCurrentIrpStackLocation(Irp);
-	return IoCallDriver(devExt->LowerDeviceObject, Irp);
-}
-
-NTSTATUS HandleReadRequest(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
-	auto devExt = (PDEVICE_EXTENSION)FilterDeviceObject->DeviceExtension;
-	NTSTATUS status = devExt->RemoveLock.ManualLock(Irp);
-	if (!NT_SUCCESS(status)) return status;
-
-	LogRequest(devExt, Irp);
-	IoCopyCurrentIrpStackLocationToNext(Irp);
-	IoSetCompletionRoutine(Irp, ReadCompletion, FilterDeviceObject, true, true, true);
-	return IoCallDriver(devExt->LowerDeviceObject, Irp);
-}
-
-NTSTATUS FilterDispatchPnp(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp) {
-	NTSTATUS status;
-	auto devExt = (DEVICE_EXTENSION*)FilterDeviceObject->DeviceExtension;
-	kstd::RemoveLockGuard guard(devExt->RemoveLock.LockAcquire(Irp, status));
-	if (!NT_SUCCESS(status)) return status;
-	auto stack = IoGetCurrentIrpStackLocation(Irp);
-	UCHAR minor = stack->MinorFunction;
-	LogRequest(devExt, Irp);
-
-	IoSkipCurrentIrpStackLocation(Irp);
-	status = IoCallDriver(devExt->LowerDeviceObject, Irp);
-	if (minor == IRP_MN_REMOVE_DEVICE) {
-		guard.Clear();
-		devExt->RemoveLock.ReleaseAndWait();
-		IoDetachDevice(devExt->LowerDeviceObject);
-		IoDeleteDevice(FilterDeviceObject);
-	}
+NTSTATUS completeIrp(PIRP Irp, NTSTATUS status = STATUS_SUCCESS, ULONG_PTR info = 0) {
+	Irp->IoStatus.Status = status;
+	Irp->IoStatus.Information = info;
+	IoCompleteRequest(Irp, IO_NO_INCREMENT);
 	return status;
 }
 
-NTSTATUS ReadCompletion(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp, PVOID Context)
-{
-	UNREFERENCED_PARAMETER(Context);
+NTSTATUS forwardKbFilterRequest(PDEVICE_KBFILTER devKbFilterExt, PIRP Irp) {
+	NTSTATUS status;
+	kstd::RemoveLockGuard guard(devKbFilterExt->RemoveLock.LockAcquire(Irp, status));
+	if (!NT_SUCCESS(status)) return status;
 
-	auto devExt = (DEVICE_EXTENSION*)FilterDeviceObject->DeviceExtension;
-	if (Irp->PendingReturned) {
-		IoMarkIrpPending(Irp);
-	}
+	LogRequest(devKbFilterExt, Irp);
+	IoSkipCurrentIrpStackLocation(Irp);
+	return IoCallDriver(devKbFilterExt->LowerDeviceObject, Irp);
+}
 
-	if (NT_SUCCESS(Irp->IoStatus.Status) && Irp->IoStatus.Information > 0)
+NTSTATUS GenericMajorFunction(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
+	auto devExt = (PDEVICE_GENERIC)DeviceObject->DeviceExtension;
+	switch (devExt->DeviceType)
 	{
-		ULONG bytes = (ULONG)Irp->IoStatus.Information;
-		PUCHAR buf = (PUCHAR)Irp->AssociatedIrp.SystemBuffer;
-		log("READ completed: Status=0x%08X, Bytes=%lu, Buf=%p\n", Irp->IoStatus.Status, bytes, buf);
-
-		HandleKeyboardResponse(devExt, Irp);
+		case DeviceType::DEVICE_CONTROL:
+			return completeIrp(Irp, STATUS_INVALID_DEVICE_REQUEST);
+		case DeviceType::DEVICE_KBFILTER:
+			return forwardKbFilterRequest((PDEVICE_KBFILTER)devExt, Irp);
+	default:
+		log("ForwardMajorFunction: Unknown device type %d\n", (int)devExt->DeviceType);
+		return completeIrp(Irp, STATUS_INVALID_DEVICE_REQUEST);
 	}
-	else {
-		log("READ completed: Status=0x%08X, Bytes=%Iu\n", Irp->IoStatus.Status, Irp->IoStatus.Information);
-	}
+}
 
-	devExt->RemoveLock.ManualUnlock();
-	return STATUS_CONTINUE_COMPLETION;
+NTSTATUS HandleReadRequest(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
+	auto devExt = (PDEVICE_GENERIC)DeviceObject->DeviceExtension;
+	switch (devExt->DeviceType) {
+		case DeviceType::DEVICE_CONTROL:
+			return completeIrp(Irp, STATUS_INVALID_DEVICE_REQUEST);
+		case DeviceType::DEVICE_KBFILTER:
+		{
+			auto devKbFilterExt = (PDEVICE_KBFILTER)devExt;
+			NTSTATUS status = devKbFilterExt->RemoveLock.ManualLock(Irp);
+			if (!NT_SUCCESS(status)) return status;
+
+			LogRequest(devKbFilterExt, Irp);
+			IoCopyCurrentIrpStackLocationToNext(Irp);
+			IoSetCompletionRoutine(Irp, keyboardbReadCompletion, DeviceObject, true, true, true);
+			return IoCallDriver(devKbFilterExt->LowerDeviceObject, Irp);
+		}
+	default:
+		log("HandleReadRequest: Unknown device type %d\n", (int)devExt->DeviceType);
+		return completeIrp(Irp, STATUS_INVALID_DEVICE_REQUEST);
+	}
+}
+
+NTSTATUS HandlePnpRequest(PDEVICE_OBJECT DeviceObject, PIRP Irp) {
+	auto devExt = (PDEVICE_GENERIC)DeviceObject->DeviceExtension;
+	switch (devExt->DeviceType) {
+		case DeviceType::DEVICE_CONTROL:
+			return completeIrp(Irp, STATUS_INVALID_DEVICE_REQUEST);
+		case DeviceType::DEVICE_KBFILTER:
+		{
+			NTSTATUS status;
+			auto devKbFilterExt = (PDEVICE_KBFILTER)devExt;
+			kstd::RemoveLockGuard guard(devKbFilterExt->RemoveLock.LockAcquire(Irp, status));
+			if (!NT_SUCCESS(status)) return status;
+			auto stack = IoGetCurrentIrpStackLocation(Irp);
+			UCHAR minor = stack->MinorFunction;
+			LogRequest(devKbFilterExt, Irp);
+
+			IoSkipCurrentIrpStackLocation(Irp);
+			status = IoCallDriver(devKbFilterExt->LowerDeviceObject, Irp);
+			if (minor == IRP_MN_REMOVE_DEVICE) {
+				guard.Clear();
+				devKbFilterExt->RemoveLock.ReleaseAndWait();
+				IoDetachDevice(devKbFilterExt->LowerDeviceObject);
+				IoDeleteDevice(DeviceObject);
+			}
+			return status;
+		}
+	default:
+		log("HandlePnpRequest: Unknown device type %d\n", (int)devExt->DeviceType);
+		return completeIrp(Irp, STATUS_INVALID_DEVICE_REQUEST);
+	}
+}
+
+NTSTATUS HandleDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	auto devExt = (PDEVICE_GENERIC)DeviceObject->DeviceExtension;
+	switch (devExt->DeviceType) {
+		case DeviceType::DEVICE_CONTROL:
+			return completeIrp(Irp);
+		case DeviceType::DEVICE_KBFILTER:
+			return completeIrp(Irp, STATUS_INVALID_DEVICE_REQUEST);
+	default:
+		log("HandleDeviceControl: Unknown device type %d\n", (int)devExt->DeviceType);
+		return completeIrp(Irp, STATUS_INVALID_DEVICE_REQUEST);
+	}
+}
+
+NTSTATUS HandleCreateOrCloseRequest(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	auto devExt = (PDEVICE_GENERIC)DeviceObject->DeviceExtension;
+	switch (devExt->DeviceType) {
+	case DeviceType::DEVICE_CONTROL:
+		return completeIrp(Irp);
+	case DeviceType::DEVICE_KBFILTER:
+		return forwardKbFilterRequest((PDEVICE_KBFILTER)devExt, Irp);
+	default:
+		log("HandleCreateOrCloseRequest: Unknown device type %d\n", (int)devExt->DeviceType);
+		return completeIrp(Irp, STATUS_INVALID_DEVICE_REQUEST);
+	}
+}
+
+
+void registerMajorFunctionsHandlers(PDRIVER_OBJECT DriverObject) {
+	for (int i = 0; i < ARRAYSIZE(DriverObject->MajorFunction); i++) {
+		if (i == IRP_MJ_READ) {
+			DriverObject->MajorFunction[i] = HandleReadRequest;
+			continue;
+		}
+		if (i == IRP_MJ_PNP) {
+			DriverObject->MajorFunction[i] = HandlePnpRequest;
+			continue;
+		}
+		if (i == IRP_MJ_DEVICE_CONTROL) {
+			DriverObject->MajorFunction[i] = HandleDeviceControl;
+			continue;
+		}
+		if (i == IRP_MJ_CREATE || i == IRP_MJ_CLOSE) {
+			DriverObject->MajorFunction[i] = HandleCreateOrCloseRequest;
+			continue;
+		}
+		DriverObject->MajorFunction[i] = GenericMajorFunction;
+	}
 }

@@ -31,6 +31,9 @@
     <ClCompile Include="src\driver\KeyboardSniffing.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\driver\ControlDevice.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="shared\Common.h">
@@ -42,10 +45,13 @@
     <ClInclude Include="src\utils\logging.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\driver\Definitions.h">
+    <ClInclude Include="src\driver\DeviceTypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\driver\KeyboardSniffing.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\driver\ControlDevice.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,6 +1,6 @@
 #include "logging.h"
 
-void LogRequest(PDEVICE_EXTENSION extDev, PIRP Irp) {
+void LogRequest(PDEVICE_KBFILTER extDev, PIRP Irp) {
 	auto thread_id = Irp->Tail.Overlay.Thread;
 	ULONG tid = 0, pid = 0;
 	if (thread_id) {
