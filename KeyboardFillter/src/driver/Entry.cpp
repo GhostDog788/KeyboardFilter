@@ -1,5 +1,5 @@
 #include <ntddk.h>
-#include <kstd/New.hpp>
+#include <kstd/memory/New.hpp>
 #include <src/utils/logging.h>
 #include <src/driver/Definitions.h>
 #include <src/driver/MajorFunctions.h>

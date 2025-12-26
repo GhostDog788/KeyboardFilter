@@ -1,8 +1,8 @@
 #pragma once
 #include <ntddk.h>
 #include <shared/Common.h>
-#include <kstd/RemoveLock.hpp>
-#include <kstd/CircularBuffer.hpp>
+#include <kstd/synchronization/RemoveLock.hpp>
+#include <kstd/collections/CircularBuffer.hpp>
 
 typedef struct _DEVICE_EXTENSION
 {

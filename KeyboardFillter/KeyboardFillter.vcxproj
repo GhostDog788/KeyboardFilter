@@ -82,7 +82,7 @@
     </DriverSign>
     <ClCompile />
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\dor\source\repos\KeyboardFillter\KeyboardFillter;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(SolutionDir)..\Collections\Collections;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -91,7 +91,7 @@
     </DriverSign>
     <ClCompile />
     <ClCompile>
-      <AdditionalIncludeDirectories>C:\Users\dor\source\repos\KeyboardFillter\KeyboardFillter;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(SolutionDir)..\Collections\Collections;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -105,15 +105,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\driver\KeyboardSniffing.h" />
-    <ClInclude Include="kstd\CircularBuffer.hpp" />
     <ClInclude Include="src\driver\Definitions.h" />
     <ClInclude Include="src\utils\logging.h" />
     <ClInclude Include="src\driver\MajorFunctions.h" />
     <ClInclude Include="shared\Common.h" />
-    <ClInclude Include="kstd\New.hpp" />
-    <ClInclude Include="kstd\Move.hpp" />
-    <ClInclude Include="kstd\RemoveLock.hpp" />
-    <ClInclude Include="kstd\StaticBuffer.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

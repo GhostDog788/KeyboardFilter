@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36518.9 d17.14
+VisualStudioVersion = 17.14.36518.9
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "KeyboardFillter", "KeyboardFillter\KeyboardFillter.vcxproj", "{FD38B6E5-63B1-A907-96B8-450C7D59036E}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Collections", "..\Collections\Collections\Collections.vcxproj", "{1B6959AD-A336-4752-836E-D26117647937}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -25,6 +27,14 @@ Global
 		{FD38B6E5-63B1-A907-96B8-450C7D59036E}.Release|x64.ActiveCfg = Release|x64
 		{FD38B6E5-63B1-A907-96B8-450C7D59036E}.Release|x64.Build.0 = Release|x64
 		{FD38B6E5-63B1-A907-96B8-450C7D59036E}.Release|x64.Deploy.0 = Release|x64
+		{1B6959AD-A336-4752-836E-D26117647937}.Debug|ARM64.ActiveCfg = Debug|x64
+		{1B6959AD-A336-4752-836E-D26117647937}.Debug|ARM64.Build.0 = Debug|x64
+		{1B6959AD-A336-4752-836E-D26117647937}.Debug|x64.ActiveCfg = Debug|x64
+		{1B6959AD-A336-4752-836E-D26117647937}.Debug|x64.Build.0 = Debug|x64
+		{1B6959AD-A336-4752-836E-D26117647937}.Release|ARM64.ActiveCfg = Release|x64
+		{1B6959AD-A336-4752-836E-D26117647937}.Release|ARM64.Build.0 = Release|x64
+		{1B6959AD-A336-4752-836E-D26117647937}.Release|x64.ActiveCfg = Release|x64
+		{1B6959AD-A336-4752-836E-D26117647937}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

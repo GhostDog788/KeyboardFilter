@@ -33,22 +33,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="kstd\Move.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="kstd\RemoveLock.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="shared\Common.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="kstd\StaticBuffer.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="kstd\CircularBuffer.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="kstd\New.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\driver\MajorFunctions.h">
