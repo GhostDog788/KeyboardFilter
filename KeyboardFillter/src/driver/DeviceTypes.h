@@ -15,12 +15,13 @@ typedef struct _DEVICE_GENERIC
 	DeviceType DeviceType; // Used to distinguish device types
 } DEVICE_GENERIC, * PDEVICE_GENERIC;
 
+#define KeyEventBufferType kstd::CircularBuffer<KeyEvent, KEY_EVENT_BUFFER_SIZE, kstd::SpinLock, kstd::SpinLock>
 typedef struct _DEVICE_KBFILTER
 {
 	DeviceType DeviceType; // Need to set to DeviceType::DEVICE_KBFILTER
 	kstd::RemoveLock RemoveLock;
 	PDEVICE_OBJECT LowerDeviceObject;
-	kstd::CircularBuffer<KeyEvent, KEY_EVENT_BUFFER_SIZE> KeyEventBuffer;
+	KeyEventBufferType KeyEventBuffer;
 	kstd::SpinLock BufferLock;
 	// Instead of buffer for each device, we need to have a global buffer in the driver
 	// The IOCTL can't access a specific device's buffer, thus the buffer must be global

