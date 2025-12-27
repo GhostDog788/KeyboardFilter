@@ -1,14 +1,9 @@
 #include "MajorFunctions.h"
 #include <src/utils/logging.h>
+#include <src/utils/IrpHandling.h>
 #include <src/driver/DeviceTypes.h>
 #include <src/driver/KeyboardSniffing.h>
-
-NTSTATUS completeIrp(PIRP Irp, NTSTATUS status = STATUS_SUCCESS, ULONG_PTR info = 0) {
-	Irp->IoStatus.Status = status;
-	Irp->IoStatus.Information = info;
-	IoCompleteRequest(Irp, IO_NO_INCREMENT);
-	return status;
-}
+#include <src/driver/ControlDevice.h>
 
 NTSTATUS forwardKbFilterRequest(PDEVICE_KBFILTER devKbFilterExt, PIRP Irp) {
 	NTSTATUS status;
@@ -92,7 +87,7 @@ NTSTATUS HandleDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	auto devExt = (PDEVICE_GENERIC)DeviceObject->DeviceExtension;
 	switch (devExt->DeviceType) {
 		case DeviceType::DEVICE_CONTROL:
-			return completeIrp(Irp);
+			return handleControlDeviceIOCTL(Irp);
 		case DeviceType::DEVICE_KBFILTER:
 			return completeIrp(Irp, STATUS_INVALID_DEVICE_REQUEST);
 	default:

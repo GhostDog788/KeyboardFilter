@@ -100,6 +100,7 @@
   <ItemGroup>
     <ClCompile Include="src\driver\ControlDevice.cpp" />
     <ClCompile Include="src\driver\KeyboardSniffing.cpp" />
+    <ClCompile Include="src\utils\IrpHandling.cpp" />
     <ClCompile Include="src\utils\logging.cpp" />
     <ClCompile Include="src\driver\MajorFunctions.cpp" />
     <ClCompile Include="src\driver\Entry.cpp" />
@@ -108,6 +109,7 @@
     <ClInclude Include="src\driver\ControlDevice.h" />
     <ClInclude Include="src\driver\KeyboardSniffing.h" />
     <ClInclude Include="src\driver\DeviceTypes.h" />
+    <ClInclude Include="src\utils\IrpHandling.h" />
     <ClInclude Include="src\utils\logging.h" />
     <ClInclude Include="src\driver\MajorFunctions.h" />
     <ClInclude Include="shared\Common.h" />
