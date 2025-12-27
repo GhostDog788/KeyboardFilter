@@ -11,8 +11,7 @@ void handleKeyboardResponse(PDEVICE_KBFILTER devExt, PIRP Irp)
 	PKEYBOARD_INPUT_DATA keyData = (PKEYBOARD_INPUT_DATA)buf;
 	ULONG count = bytes / sizeof(KEYBOARD_INPUT_DATA);
 
-	KIRQL old_irql;
-	KeAcquireSpinLock(&devExt->BufferLock, &old_irql);
+	kstd::SpinLockGuard guard(devExt->BufferLock);
 	for (ULONG i = 0; i < count; ++i) {
 		log("Key[%lu]: MakeCode=0x%X, Flags=0x%X\n", i, keyData[i].MakeCode, keyData[i].Flags);
 		KeyEvent key_data{};
@@ -21,7 +20,6 @@ void handleKeyboardResponse(PDEVICE_KBFILTER devExt, PIRP Irp)
 		key_data.Flags = keyData[i].Flags;
 		devExt->KeyEventBuffer.push(key_data);
 	}
-	KeReleaseSpinLock(&devExt->BufferLock, old_irql);
 }
 
 NTSTATUS keyboardbReadCompletion(PDEVICE_OBJECT FilterDeviceObject, PIRP Irp, PVOID Context)
@@ -62,8 +60,8 @@ NTSTATUS attachToKeyboardStack(PDRIVER_OBJECT DriverObject)
 		RtlZeroMemory(devExt, sizeof(*devExt));
 		devExt->DeviceType = DeviceType::DEVICE_KBFILTER;
 		new (&devExt->KeyEventBuffer) kstd::CircularBuffer<KeyEvent, KEY_EVENT_BUFFER_SIZE>(true);
-		devExt->RemoveLock.Initialize();
-		KeInitializeSpinLock(&devExt->BufferLock);
+		new (&devExt->RemoveLock) kstd::RemoveLock();
+		new (&devExt->BufferLock) kstd::SpinLock();
 
 		PFILE_OBJECT FileObject;
 		PDEVICE_OBJECT TargetDeviceObject;

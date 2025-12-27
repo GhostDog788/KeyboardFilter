@@ -2,6 +2,7 @@
 #include <ntddk.h>
 #include <shared/Common.h>
 #include <kstd/synchronization/RemoveLock.hpp>
+#include <kstd/synchronization/SpinLock.hpp>
 #include <kstd/collections/CircularBuffer.hpp>
 
 enum class DeviceType {
@@ -20,7 +21,7 @@ typedef struct _DEVICE_KBFILTER
 	kstd::RemoveLock RemoveLock;
 	PDEVICE_OBJECT LowerDeviceObject;
 	kstd::CircularBuffer<KeyEvent, KEY_EVENT_BUFFER_SIZE> KeyEventBuffer;
-	KSPIN_LOCK BufferLock;
+	kstd::SpinLock BufferLock;
 	// Instead of buffer for each device, we need to have a global buffer in the driver
 	// The IOCTL can't access a specific device's buffer, thus the buffer must be global
 	// Key notes:
